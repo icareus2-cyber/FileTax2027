@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {draft,validate} from '../tax.js';
+import {sections} from '../public/questions.js';
+const fields=sections.flatMap(s=>s.fields);
+import {makePdf,lineFields} from '../pdf.js';
+import {PDFDocument} from 'pdf-lib';
+const complete=()=>Object.assign(Object.fromEntries(fields.filter(f=>['money','signed'].includes(f[2])).map(f=>[f[0],0])),{firstName:'Test',lastName:'Taxpayer',status:'Single',special:'No',deductionMethod:'Basic standard deduction',wages:60000,tax:5072,withheld:7000});
+test('income, standard deduction, payments and overpayment',()=>{const d=draft(complete()).lines;assert.equal(d['9'],60000);assert.equal(d['15'],44250);assert.equal(d['24'],5072);assert.equal(d['34'],1928);assert.equal(d['37'],0);});
+test('missing answers never become zero',()=>{const d=draft({wages:60000}).lines;assert.equal(d['1a'],60000);assert.equal(d['9'],null);assert.equal(d['34'],null);});
+test('special standard deduction requires verified entry',()=>{const a={...complete(),special:'Yes'};assert.equal(draft(a).lines['12e'],null);a.deductionMethod='Enter verified deduction';a.deduction=17750;assert.equal(draft(a).lines['15'],42250);});
+test('negative AGI remains negative; taxable income and credits floor at zero',()=>{const a={...complete(),wages:0,additionalIncome:-2000,childCredit:10000};const d=draft(a).lines;assert.equal(d['11a'],-2000);assert.equal(d['15'],0);assert.equal(d['22'],0);});
+test('server rejects invalid financial inputs and strips unknown fields',()=>{for(const x of [-1,NaN,Infinity,'20'])assert.throws(()=>validate({wages:x}));assert.throws(()=>validate({qualifiedDividends:20,dividends:10}));assert.throws(()=>validate({status:'unknown'}));assert.deepEqual(validate({wages:20,ssn:'123'}),{wages:20});});
+test('PDF populates every mapped amount and filing status',async()=>{const a=complete(),d=draft(a);const pdf=await PDFDocument.load(await makePdf(a,d));const form=pdf.getForm();for(const [line,id] of Object.entries(lineFields)){const f=form.getFields().find(f=>f.getName().endsWith(`.${id}[0]`));assert.equal(f.getText(),String(d.lines[line]),line);}assert.equal(form.getCheckBox('topmostSubform[0].Page1[0].Checkbox_ReadOrder[0].c1_8[0]').isChecked(),true);assert.equal(pdf.getPageCount(),2);});

@@ -1,0 +1,23 @@
+{
+  "name": "filetax2027",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test",
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.22.3",
+    "pdf-lib": "^1.17.1"
+  },
+  "type": "module",
+  "devDependencies": {
+    "jsdom": "^24.1.3"
+  }
+}
